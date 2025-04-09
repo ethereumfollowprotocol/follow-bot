@@ -1,0 +1,21 @@
+{
+  "name": "follow-bot",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun ./src/index.ts",
+    "dev": "bun ./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "grammy": "^1.35.1",
+    "postgres": "^3.4.5",
+    "redis": "^4.7.0",
+    "viem": "^2.5.0"
+  }
+}
