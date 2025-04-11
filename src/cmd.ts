@@ -22,6 +22,10 @@ function linkTelegram(user: string): string {
     return `<a href="https://t.me/${user}">Telegram</a>`
 }
 
+function linkEtherscan(address: string): string {
+    return `<a href="https://etherscan.io/address/${address}">${address}</a>`
+}
+
 export async function handleEvent(bot: any, row: any): Promise<void> {
     if(row?.event_name === 'ListOp'){
         const operator = await getListUser(row?.event_args?.slot, row?.chain_id, row?.contract_address)
@@ -161,12 +165,13 @@ export async function handleDetails(ctx: any): Promise<void> {
     const efpData = await getEFPDetails(addrOrENS)
     const efpStats = await getEFPStats(addrOrENS)
     const list = efpData?.primary_list ? `| #${linkEFP(efpData?.primary_list)}` : ''
+    const address = efpData?.address ? `${linkEtherscan(efpData?.address)}\n` : ''
     const status = efpData?.ens?.records?.status ? `<i>${efpData?.ens?.records?.status}</i>\n` : ''
     const github = efpData?.ens?.records?.["com.github"] ? `${linkGithub(efpData?.ens?.records?.["com.github"])} |` : ''
     const twitter = efpData?.ens?.records?.["com.twitter"] ? `${linkTwitter(efpData?.ens?.records?.["com.twitter"])} |` : ''
     const telegram = efpData?.ens?.records?.["org.telegram"] ? `${linkTelegram(efpData?.ens?.records?.["org.telegram"])} |` : ''
     const details = `
-| ${linkEFP(efpData?.ens?.name || addrOrENS)} ${list} | Following: ${efpStats?.following_count || 0} | Followers: ${efpStats?.followers_count || 0} |\n
+| ${linkEFP(efpData?.ens?.name || addrOrENS)} ${list} | Following: ${efpStats?.following_count || 0} | Followers: ${efpStats?.followers_count || 0} |\n${address}
 ${efpData?.ens?.records?.description || "No bio available."}\n
 ${status}
 | ${twitter} ${github} ${telegram}\n
