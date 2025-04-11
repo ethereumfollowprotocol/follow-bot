@@ -75,7 +75,7 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
         address = await getAddressFromEnsName(addrOrENS as string)
     } 
     if (!address) {
-        await ctx.reply("Invalid address or ENS name. Please provide a valid Ethereum address or ENS name.");
+        await ctx.reply(`Invalid address or ENS name. '${addrOrENS}' Please provide a valid Ethereum address or ENS name.`);
         return
     }
     if (!ctx.chat.id){
@@ -86,7 +86,7 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
     const chatsByAddress = (await redis.get(address)) as { chats: string[] } | null;
     const existingChats = chatsByAddress ? chatsByAddress.chats : [];
     if (existingChats.includes(ctx.chat.id)) {
-        await ctx.reply("This chat is already subscribed to updates for this address.");
+        await ctx.reply(`This chat is already subscribed to updates for ${addrOrENS}.`);
         return;
     }
     existingChats.push(ctx.chat.id);    
@@ -95,14 +95,14 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
     const subsByChat = (await redis.get(`subs:${ctx.chat.id}`)) as { subs: string[] } | null
     const existingSubs = subsByChat ? subsByChat.subs : []
     if (existingSubs.includes(address)) {
-        await ctx.reply("This chat is already subscribed to updates for this address.");
+        await ctx.reply(`This chat is already subscribed to updates for ${addrOrENS}.`);
         return;
     }
     existingSubs.push(address);    
     await redis.put(`subs:${ctx.chat.id}`, JSON.stringify({ subs: existingSubs }));
 
-    await ctx.reply(`This chat is now subscribed to updates for: ${address}`);
-    console.log(`[${ctx.chat.id}] subscribed to address: ${address}`);
+    await ctx.reply(`Subscribing to ${addrOrENS}...\nThis chat is now subscribed to updates for: ${address}`);
+    console.log(`[${ctx.chat.id}] subscribed to address: ${addrOrENS}`);
 }
 
 export async function handleUnsubscribe(ctx: any): Promise<void> {
