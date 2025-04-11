@@ -77,3 +77,57 @@ export async function getBatchEnsNameFromAddress(addresses: string[]): Promise<(
     });
     return results
 }
+
+export async function getENSProfileFromAddressOrName(addrOrENS: string): Promise<any> {
+    return new Promise((resolve) => {
+        try {
+            const url = `${env.ENS_WORKER_URL}/u/${addrOrENS}`
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.name) {
+                        resolve(data)
+                    } else {
+                        resolve(null)
+                    }
+                })
+                .catch(() => resolve(null))
+        } catch (error) {
+            resolve(null)
+        }
+    });
+}
+
+export async function fetchURL(url: string): Promise<any> {
+    try {
+        const response = await fetch(url)
+        if (!response.ok) {
+            console.error(`Failed to fetch ${url}: ${response.statusText}`)
+            return null
+        }
+        return await response.json()
+    } catch (error) {
+        console.error(`Error fetching ${url}:`, error)
+        return null
+    }
+}
+
+export async function getEFPDetails(addrOrENS: string): Promise<any> {
+    const url = `https://data.ethfollow.xyz/api/v1/users/${addrOrENS}/details`
+    try {
+        const response = await fetchURL(url)
+        return response
+    } catch (error) {
+        return null
+    }
+}
+
+export async function getEFPStats(addrOrENS: string): Promise<any> {
+    const url = `https://data.ethfollow.xyz/api/v1/users/${addrOrENS}/stats`
+    try {
+        const response = await fetchURL(url)
+        return response
+    } catch (error) {
+        return null
+    }
+}
