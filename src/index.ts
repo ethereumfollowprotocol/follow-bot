@@ -27,7 +27,10 @@ bot.command("start", async (ctx) => {
 });
 
 bot.command(["sub", "subscribe"], async (ctx) => {
-    await handleSubscribe(ctx)
+    const terms = ctx.match.split(" ")
+    for (const term of terms) {
+        await handleSubscribe(ctx, term)
+    }
 });
 
 bot.command(["unsub", "unsubscribe"], async (ctx) => {
