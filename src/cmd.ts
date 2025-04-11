@@ -1,4 +1,4 @@
-import { isAddress, getAddressFromEnsName, getEnsNameFromAddress } from "#/utils"
+import { isAddress, getAddressFromEnsName, getEnsNameFromAddress, arrayToChunks, getBatchEnsNameFromAddress } from "#/utils"
 import { RedisService } from "#/data"
 import { parseListOperation, getListUser } from "#/efp"
 import { InlineKeyboard } from "grammy"
@@ -44,20 +44,18 @@ export async function handleListSubs(ctx: any): Promise<void> {
         await ctx.reply("This chat has no subscriptions.")
         return
     }
+
     let response = "This chat is subscribed to the following addresses:\n"
-    for (const address of subsByChat.subs) {
-        const ensName = await getEnsNameFromAddress(address)
-        response += `- ${ensName ? ensName : address}\n`
-    }
-    await ctx.reply(response)
+    const names = await getBatchEnsNameFromAddress(subsByChat.subs)
+    const subs = names.map((record) =>  `- ${record}\n`)
+    await ctx.reply(response + subs.join(''));
     console.log(`list all subscriptions for chat: ${ctx.chat.id}`);
 }
 
-export async function handleSubscribe(ctx: any): Promise<void> {
-    const addrOrENS = ctx.match
+export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promise<void> {
     let address = addrOrENS
-    if(!isAddress(addrOrENS)) {
-        address = await getAddressFromEnsName(addrOrENS)
+    if(!isAddress(addrOrENS as string)) {
+        address = await getAddressFromEnsName(addrOrENS as string)
     } 
     if (!address) {
         await ctx.reply("Invalid address or ENS name. Please provide a valid Ethereum address or ENS name.");
