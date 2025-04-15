@@ -3,6 +3,7 @@ import { RedisService } from "#/data"
 import { parseListOperation, getListUser } from "#/efp"
 import { InlineKeyboard } from "grammy"
 import { parse } from "node_modules/grammy/out/filter"
+import { sleep } from "bun"
 
 const redis = new RedisService()
 
@@ -41,22 +42,25 @@ export async function handleEvent(bot: any, row: any): Promise<void> {
         const existingChatsOperator = existingSubsOperator ? existingSubsOperator.chats : [];
         if (existingChatsTarget.length === 0 && existingChatsOperator.length === 0) return;
 
-        const targetStats = await getEFPStats(address)
-        const operatorStats = await getEFPStats(operator)
+        // const targetStats = await getEFPStats(address)
+        // const operatorStats = await getEFPStats(operator)
         const operatorEns = await getEnsNameFromAddress(operator)
         const operatorName = operatorEns ? operatorEns : operator;
         const targetEns = await getEnsNameFromAddress(address)
         const targetName = targetEns ? targetEns : address;
-        const message = `${linkEFP(operatorName)}(${targetStats.following_count}, ${targetStats.followers_count}) ${listop.recordTypeDescription} ${linkEFP(targetName)}(${operatorStats.following_count}, ${operatorStats.followers_count}) ${listop.tag ? `as '${listop.tag}'` : ''}`
+        // const message = `${linkEFP(operatorName)}(${operatorStats.following_count}, ${operatorStats.followers_count}) ${listop.recordTypeDescription} ${linkEFP(targetName)}(${targetStats.following_count}, ${targetStats.followers_count}) ${listop.tag ? `as '${listop.tag}'` : ''}`
+        const message = `${linkEFP(operatorName)} ${listop.recordTypeDescription} ${linkEFP(targetName)} ${listop.tag ? `as '${listop.tag}'` : ''}`
         const logmsg = `${operatorName} ${listop.recordTypeDescription} ${targetName} ${listop.tag ? `as '${listop.tag}'` : ''}`
         for (const chatId of existingChatsTarget) {
             await bot.api.sendMessage(chatId, message, { parse_mode: "HTML", link_preview_options: {is_disabled: true} })
             console.log(`[${chatId}]: ${logmsg}`)
+            await sleep(500)
         }
 
         for (const chatId of existingChatsOperator) {
             await bot.api.sendMessage(chatId, message, { parse_mode: "HTML", link_preview_options: {is_disabled: true} })
             console.log(`[${chatId}]: ${logmsg}`)
+            await sleep(500)
         }
     }
 }

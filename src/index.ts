@@ -2,6 +2,7 @@ import { Bot, GrammyError, HttpError } from "grammy";
 import postgres from "postgres";
 import { handleDetails, handleEvent, handleHelp, handleListSubs, handleSubscribe, handleUnsubscribe, unsubscribeAll } from "#/cmd.ts";
 import { env } from "#/env.ts";
+import { sleep } from "bun";
 
 const bot = new Bot(env.TG_BOT_TOKEN); 
 
@@ -15,7 +16,7 @@ const client = postgres(env.DATABASE_URL, {
 client.subscribe(
     'events',
     async (row, { command, relation }) => {
-        handleEvent(bot,row)
+        await handleEvent(bot,row)
     },
     () => {
         console.log(`Connected to EFP Global Publication`)
@@ -31,6 +32,7 @@ bot.command(["sub", "subscribe"], async (ctx) => {
     const terms = ctx.match.split(" ")
     for (const term of terms) {
         await handleSubscribe(ctx, term)
+        await sleep(300)
     }
 });
 
