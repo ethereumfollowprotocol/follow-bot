@@ -1,12 +1,33 @@
-import { isAddress, getAddressFromEnsName, getEnsNameFromAddress, arrayToChunks, getBatchEnsNameFromAddress } from "#/utils"
+import { isAddress, getAddressFromEnsName, getEnsNameFromAddress, arrayToChunks, getBatchEnsNameFromAddress, getENSProfileFromAddressOrName, getEFPDetails, getEFPStats, fetchURL } from "#/utils"
 import { RedisService } from "#/data"
 import { parseListOperation, getListUser } from "#/efp"
 import { InlineKeyboard } from "grammy"
+import { parse } from "node_modules/grammy/out/filter"
 
 const redis = new RedisService()
 
-function efpLink(acct: string): string {
+function linkEFP(acct: string): string {
     return `<a href="https://efp.app/${acct}">${acct}</a>`
+}
+
+function linkGithub(user: string): string {
+    return `<a href="https://github.com/${user}">Github</a>`
+}
+
+function linkTwitter(user: string): string {
+    return `<a href="https://x.com/${user}">X</a>`
+}
+
+function linkTelegram(user: string): string {
+    return `<a href="https://t.me/${user}">Telegram</a>`
+}
+
+function linkDiscord(user: string): string {
+    return `<a href="https://discord.com/users/${user}">Discord</a>`
+}
+
+function linkEtherscan(address: string): string {
+    return `<a href="https://etherscan.io/address/${address}">${address}</a>`
 }
 
 export async function handleEvent(bot: any, row: any): Promise<void> {
@@ -20,11 +41,13 @@ export async function handleEvent(bot: any, row: any): Promise<void> {
         const existingChatsOperator = existingSubsOperator ? existingSubsOperator.chats : [];
         if (existingChatsTarget.length === 0 && existingChatsOperator.length === 0) return;
 
+        const targetStats = await getEFPStats(address)
+        const operatorStats = await getEFPStats(operator)
         const operatorEns = await getEnsNameFromAddress(operator)
         const operatorName = operatorEns ? operatorEns : operator;
         const targetEns = await getEnsNameFromAddress(address)
         const targetName = targetEns ? targetEns : address;
-        const message = `${efpLink(operatorName)} ${listop.recordTypeDescription} ${efpLink(targetName)} ${listop.tag ? `as '${listop.tag}'` : ''}`
+        const message = `${linkEFP(operatorName)}(${targetStats.following_count}, ${targetStats.followers_count}) ${listop.recordTypeDescription} ${linkEFP(targetName)}(${operatorStats.following_count}, ${operatorStats.followers_count}) ${listop.tag ? `as '${listop.tag}'` : ''}`
         const logmsg = `${operatorName} ${listop.recordTypeDescription} ${targetName} ${listop.tag ? `as '${listop.tag}'` : ''}`
         for (const chatId of existingChatsTarget) {
             await bot.api.sendMessage(chatId, message, { parse_mode: "HTML", link_preview_options: {is_disabled: true} })
@@ -58,7 +81,7 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
         address = await getAddressFromEnsName(addrOrENS as string)
     } 
     if (!address) {
-        await ctx.reply("Invalid address or ENS name. Please provide a valid Ethereum address or ENS name.");
+        await ctx.reply(`Invalid address or ENS name. '${addrOrENS}' Please provide a valid Ethereum address or ENS name.`);
         return
     }
     if (!ctx.chat.id){
@@ -69,7 +92,7 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
     const chatsByAddress = (await redis.get(address)) as { chats: string[] } | null;
     const existingChats = chatsByAddress ? chatsByAddress.chats : [];
     if (existingChats.includes(ctx.chat.id)) {
-        await ctx.reply("This chat is already subscribed to updates for this address.");
+        await ctx.reply(`This chat is already subscribed to updates for ${addrOrENS}.`);
         return;
     }
     existingChats.push(ctx.chat.id);    
@@ -78,14 +101,14 @@ export async function handleSubscribe(ctx: any, addrOrENS: string | null): Promi
     const subsByChat = (await redis.get(`subs:${ctx.chat.id}`)) as { subs: string[] } | null
     const existingSubs = subsByChat ? subsByChat.subs : []
     if (existingSubs.includes(address)) {
-        await ctx.reply("This chat is already subscribed to updates for this address.");
+        await ctx.reply(`This chat is already subscribed to updates for ${addrOrENS}.`);
         return;
     }
     existingSubs.push(address);    
     await redis.put(`subs:${ctx.chat.id}`, JSON.stringify({ subs: existingSubs }));
 
-    await ctx.reply(`This chat is now subscribed to updates for: ${address}`);
-    console.log(`[${ctx.chat.id}] subscribed to address: ${address}`);
+    await ctx.reply(`Subscribing to ${addrOrENS}...\nThis chat is now subscribed to updates for: ${address}`);
+    console.log(`[${ctx.chat.id}] subscribed to address: ${addrOrENS}`);
 }
 
 export async function handleUnsubscribe(ctx: any): Promise<void> {
@@ -140,20 +163,59 @@ export async function unsubscribeAll(ctx: any): Promise<void> {
     }
     
     await redis.put(`subs:${ctx.chat.id}`, JSON.stringify({ subs: [] }));
-    // await ctx.reply("This chat is now unsubscribed from all addresses.");
     console.log(`[${ctx.chat.id}] unsubscribed from all addresses`);
+}
+
+export async function handleDetails(ctx: any): Promise<void> {
+    const addrOrENS = ctx.match
+    const efpData = await getEFPDetails(addrOrENS)
+    const efpStats = await getEFPStats(addrOrENS)
+    const list = efpData?.primary_list ? `| #${linkEFP(efpData?.primary_list)}` : ''
+    const address = efpData?.address ? `${linkEtherscan(efpData?.address)}\n` : ''
+    const status = efpData?.ens?.records?.status ? `<i>${efpData?.ens?.records?.status}</i>\n` : ''
+    const github = efpData?.ens?.records?.["com.github"] ? `${linkGithub(efpData?.ens?.records?.["com.github"])} |` : ''
+    const twitter = efpData?.ens?.records?.["com.twitter"] ? `${linkTwitter(efpData?.ens?.records?.["com.twitter"])} |` : ''
+    const telegram = efpData?.ens?.records?.["org.telegram"] ? `${linkTelegram(efpData?.ens?.records?.["org.telegram"])} |` : ''
+    const discord = efpData?.ens?.records?.["com.discord"] ? `${linkDiscord(efpData?.ens?.records?.["com.discord"])} |` : ''
+    let details = `
+${linkEFP(efpData?.ens?.name || addrOrENS)} ${list} 
+Following: ${efpStats?.following_count || 0} | Followers: ${efpStats?.followers_count || 0} \n${address}
+${efpData?.ens?.records?.description || "No bio available."} \n\n`
+
+    if(status) {
+        details += `${status}\n`
+    }
+    if (github || twitter || telegram || discord) {
+        details += `| ${twitter} ${github} ${telegram} ${discord}\n`
+    }
+    if(efpData?.ens?.avatar === null || efpData?.ens?.avatar === undefined) {
+        await ctx.reply(details, { parse_mode: "HTML", link_preview_options: {is_disabled: true} });
+        return;
+    }
+    const checkAvatar = await fetch(efpData?.ens?.avatar)
+    if (!checkAvatar.ok) {
+        await ctx.reply(details, { parse_mode: "HTML", link_preview_options: {is_disabled: true} });
+        return;
+    }
+    await ctx.replyWithPhoto(efpData?.ens?.avatar, {
+        caption: details,
+        parse_mode: "HTML",
+        link_preview_options: {is_disabled: true}
+    })
+    console.log(`[${ctx.chat.id}] requested details for address: ${addrOrENS}`);
 }
 
 export async function handleHelp(ctx: any): Promise<void> {
     const helpMessage = `
 Welcome to the official EFP Follow Bot! \r\n
 You can use this bot to stay up to date with who is following who on EFP.  Here are the commands you can use: \r\n
-/subscribe <address_or_ens> - Subscribe to updates for a specific Ethereum address or ENS name. \r\n
-/sub <address_or_ens> - Subscribe to updates for a specific Ethereum address or ENS name (alias for /subscribe). \r\n
+/details <address_or_ens> - Get details for a specific Ethereum address or ENS name. \r\n
+/list - List all subscriptions for this chat. \r\n
+/subscribe <address_or_ens> <address_or_ens> <address_or_ens> - Subscribe to updates for multiple Ethereum addresses or ENS names. \r\n
+/sub <address_or_ens> <address_or_ens> <address_or_ens> - Subscribe to updates for multiple Ethereum addresses or ENS names (alias for /subscribe). \r\n
 /unsubscribe <address_or_ens> - Unsubscribe from updates for a specific Ethereum address or ENS name. \r\n
 /unsub <address_or_ens> - Unsubscribe from updates for a specific Ethereum address or ENS name (alias for /unsubscribe). \r\n
 /unsub all - Unsubscribe from all accounts. \r\n
-/list - List all subscriptions for this chat. \r\n
 /help - Show this help message.`
 
     await ctx.reply(helpMessage);

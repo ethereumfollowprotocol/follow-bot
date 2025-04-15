@@ -1,6 +1,6 @@
 import { Bot, GrammyError, HttpError } from "grammy";
 import postgres from "postgres";
-import { handleEvent, handleHelp, handleListSubs, handleSubscribe, handleUnsubscribe, unsubscribeAll } from "#/cmd.ts";
+import { handleDetails, handleEvent, handleHelp, handleListSubs, handleSubscribe, handleUnsubscribe, unsubscribeAll } from "#/cmd.ts";
 import { env } from "#/env.ts";
 
 const bot = new Bot(env.TG_BOT_TOKEN); 
@@ -39,6 +39,10 @@ bot.command(["unsub", "unsubscribe"], async (ctx) => {
 
 bot.command(["h", "help"], async (ctx) => {
     await handleHelp(ctx)
+});
+
+bot.command(["d", "details"], async (ctx) => {
+    await handleDetails(ctx)
 });
 
 bot.command("list", async (ctx) => {
