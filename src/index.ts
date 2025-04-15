@@ -27,6 +27,7 @@ bot.command("start", async (ctx) => {
 });
 
 bot.command(["sub", "subscribe"], async (ctx) => {
+    await ctx.replyWithChatAction("typing")
     const terms = ctx.match.split(" ")
     for (const term of terms) {
         await handleSubscribe(ctx, term)
@@ -46,10 +47,12 @@ bot.command(["d", "details"], async (ctx) => {
 });
 
 bot.command("list", async (ctx) => {
+    await ctx.replyWithChatAction("typing")
     await handleListSubs(ctx)
 });
 
 bot.callbackQuery("confirm_unsubscribe_all", async (ctx) => {
+    await ctx.replyWithChatAction("typing")
     // handle confirmation of unsubscribe all command
     await unsubscribeAll(ctx)
     await ctx.editMessageReplyMarkup()
