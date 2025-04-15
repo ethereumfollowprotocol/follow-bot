@@ -22,6 +22,10 @@ function linkTelegram(user: string): string {
     return `<a href="https://t.me/${user}">Telegram</a>`
 }
 
+function linkDiscord(user: string): string {
+    return `<a href="https://discord.com/users/${user}">Discord</a>`
+}
+
 function linkEtherscan(address: string): string {
     return `<a href="https://etherscan.io/address/${address}">${address}</a>`
 }
@@ -37,11 +41,13 @@ export async function handleEvent(bot: any, row: any): Promise<void> {
         const existingChatsOperator = existingSubsOperator ? existingSubsOperator.chats : [];
         if (existingChatsTarget.length === 0 && existingChatsOperator.length === 0) return;
 
+        const targetStats = await getEFPStats(address)
+        const operatorStats = await getEFPStats(operator)
         const operatorEns = await getEnsNameFromAddress(operator)
         const operatorName = operatorEns ? operatorEns : operator;
         const targetEns = await getEnsNameFromAddress(address)
         const targetName = targetEns ? targetEns : address;
-        const message = `${linkEFP(operatorName)} ${listop.recordTypeDescription} ${linkEFP(targetName)} ${listop.tag ? `as '${listop.tag}'` : ''}`
+        const message = `${linkEFP(operatorName)}(${targetStats.following_count}, ${targetStats.followers_count}) ${listop.recordTypeDescription} ${linkEFP(targetName)}(${operatorStats.following_count}, ${operatorStats.followers_count}) ${listop.tag ? `as '${listop.tag}'` : ''}`
         const logmsg = `${operatorName} ${listop.recordTypeDescription} ${targetName} ${listop.tag ? `as '${listop.tag}'` : ''}`
         for (const chatId of existingChatsTarget) {
             await bot.api.sendMessage(chatId, message, { parse_mode: "HTML", link_preview_options: {is_disabled: true} })
@@ -170,12 +176,18 @@ export async function handleDetails(ctx: any): Promise<void> {
     const github = efpData?.ens?.records?.["com.github"] ? `${linkGithub(efpData?.ens?.records?.["com.github"])} |` : ''
     const twitter = efpData?.ens?.records?.["com.twitter"] ? `${linkTwitter(efpData?.ens?.records?.["com.twitter"])} |` : ''
     const telegram = efpData?.ens?.records?.["org.telegram"] ? `${linkTelegram(efpData?.ens?.records?.["org.telegram"])} |` : ''
-    const details = `
-| ${linkEFP(efpData?.ens?.name || addrOrENS)} ${list} | Following: ${efpStats?.following_count || 0} | Followers: ${efpStats?.followers_count || 0} |\n${address}
-${efpData?.ens?.records?.description || "No bio available."}\n
-${status}
-| ${twitter} ${github} ${telegram}\n
-        `
+    const discord = efpData?.ens?.records?.["com.discord"] ? `${linkDiscord(efpData?.ens?.records?.["com.discord"])} |` : ''
+    let details = `
+${linkEFP(efpData?.ens?.name || addrOrENS)} ${list} 
+Following: ${efpStats?.following_count || 0} | Followers: ${efpStats?.followers_count || 0} \n${address}
+${efpData?.ens?.records?.description || "No bio available."} \n\n`
+
+    if(status) {
+        details += `${status}\n`
+    }
+    if (github || twitter || telegram || discord) {
+        details += `| ${twitter} ${github} ${telegram} ${discord}\n`
+    }
     if(efpData?.ens?.avatar === null || efpData?.ens?.avatar === undefined) {
         await ctx.reply(details, { parse_mode: "HTML", link_preview_options: {is_disabled: true} });
         return;
