@@ -1,5 +1,6 @@
 interface EnvironmentVariables {
     readonly ACCOUNT_METADATA: `0x${string}`;
+    readonly LIST_REGISTRY: `0x${string}`;
     readonly DATABASE_URL: string;
     readonly REDIS_URL: string;
     readonly TG_BOT_TOKEN: string;
