@@ -1,8 +1,7 @@
-import { isAddress, getAddressFromEnsName, getEnsNameFromAddress, arrayToChunks, getBatchEnsNameFromAddress, getENSProfileFromAddressOrName, getEFPDetails, getEFPStats, fetchURL } from "#/utils"
+import { isAddress, getAddressFromEnsName, getEnsNameFromAddress, getBatchEnsNameFromAddress, getENSProfileFromAddressOrName, getEFPDetails, getEFPStats, fetchURL } from "#/utils"
 import { RedisService } from "#/data"
-import { parseListOperation, getListUser } from "#/efp"
+import { parseListOperation, getListUser, validatePrimaryListOp, getListId } from "#/efp"
 import { InlineKeyboard } from "grammy"
-import { parse } from "node_modules/grammy/out/filter"
 import { sleep } from "bun"
 
 const redis = new RedisService()
@@ -36,6 +35,15 @@ export async function handleEvent(bot: any, row: any): Promise<void> {
         const operator = await getListUser(row?.event_args?.slot, row?.chain_id, row?.contract_address)
         const listop = parseListOperation(row.event_args?.op)
         const address = listop.recordAddress
+        const operatorListId = await getListId(operator)
+    
+        // we don't want to notify for non-primary list operations
+        const validPrimaryListOp = await validatePrimaryListOp(row, operatorListId);
+        if (!validPrimaryListOp) {
+            console.log(`[${operator}] Non primary list operation from slot  ${row?.event_args?.slot} for address: ${address}`);
+            return;
+        }
+
         const existingSubsTarget = (await redis.get(address)) as { chats: string[] } | null;
         const existingChatsTarget = existingSubsTarget ? existingSubsTarget.chats : [];
         const existingSubsOperator = (await redis.get(operator)) as { chats: string[] } | null;

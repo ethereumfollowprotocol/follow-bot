@@ -1,6 +1,6 @@
 import { env } from '#/env'
 import { evmClients } from '#/clients'
-import { efpAccountMetadataAbi, efpListRecordsAbi } from '#/abi'
+import { efpAccountMetadataAbi, efpListRecordsAbi, efpListRegistryAbi } from '#/abi'
 import type { ListStorageLocation, Operation } from '#/types';
 
 /**
@@ -11,7 +11,6 @@ import type { ListStorageLocation, Operation } from '#/types';
  * @param contract - The list records contract address.
  * @returns A string representing the list user role of the slot.
  */
-
 export async function getListUser(slot: bigint, chainId: string, contract: `0x${string}`): Promise<`0x${string}`> {
     const listUser = await evmClients[chainId as keyof typeof evmClients]().readContract({
         address: contract as `0x${string}`,
@@ -28,7 +27,6 @@ export async function getListUser(slot: bigint, chainId: string, contract: `0x${
  * @param user - The user address to fetch the list ID for.
  * @returns A bigint representing the list ID of the user.
  */
-
 export async function getListId(user: `0x${string}`): Promise<bigint | null> {
     const listId = await evmClients['8453']().readContract({
         address: env.ACCOUNT_METADATA as `0x${string}`,
@@ -37,6 +35,23 @@ export async function getListId(user: `0x${string}`): Promise<bigint | null> {
         args: [ user, 'primary-list' ]
     })
     return listId != '0x' ? BigInt(listId) : null
+}
+
+/**
+ * Fetches the list storage location of a list from the list registry contract.
+ * 
+ * @param listId - The list id to fetch the list storage location for.
+ * @returns A string representing the list storage location of the list.
+ */
+
+export async function getLSL(listId: bigint): Promise<string | null> {
+    const listStorageLocation = await evmClients['8453']().readContract({
+        address: env.LIST_REGISTRY as `0x${string}`,
+        abi: efpListRegistryAbi,
+        functionName: 'getListStorageLocation',
+        args: [ listId ]
+    })
+    return listStorageLocation != '0x' ? listStorageLocation : null
 }
 
 /**
@@ -115,4 +130,30 @@ export function parseListStorageLocation(lsl: string): ListStorageLocation {
         listRecordsContract: lslListRecordsContract,
         slot: lslSlot
     }
+}
+
+/**
+ * Validates if the list operation is from the primary list of the user.
+ * 
+ * @param row the event row from the postgres global publication
+ * @param operatorListId the list id of the user making the operation
+ * @returns boolean indicating if the operation is from the primary list
+ */
+export async function validatePrimaryListOp(row: any, operatorListId: bigint | null): Promise<boolean> {
+    if (operatorListId === null) {
+        return false
+    }
+    const lsl = await getLSL(operatorListId)
+    if (lsl === null) {
+        return false
+    }
+    const parsedLSL = parseListStorageLocation(lsl)
+    if(!(
+        parsedLSL.chainId.toString() === row.chain_id.toString() &&
+        parsedLSL.listRecordsContract.toLowerCase() === row.contract_address.toLowerCase() &&
+        parsedLSL.slot === BigInt(row.event_args.slot)
+    )){
+        return false
+    }
+    return true
 }
