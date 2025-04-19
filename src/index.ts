@@ -91,14 +91,14 @@ for (;;) {
     console.log(`waiting for events...`)
     heartbeat++
     if (heartbeat > 300 && env.HEARTBEAT_URL && env.HEARTBEAT_URL !== 'unset') {
-    // call snitch
-    try {
-        const response = await fetch(`${env.HEARTBEAT_URL}`)
-        const text = await response.text()
-        console.log(`Heartbeat registered`)
-        heartbeat = 0
-    } catch (err) {
-        console.log(`Failed to register heartbeat `)
-    }
+        // call snitch
+        try {
+            const response = await fetch(`${env.HEARTBEAT_URL}`)
+            const text = await response.text()
+            console.log(`Heartbeat registered`)
+            heartbeat = 0
+        } catch (err) {
+            console.log(`Failed to register heartbeat `)
+        }
     }
 }
