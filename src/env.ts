@@ -11,7 +11,8 @@ export const env = Object.freeze({
     ETH_RPC_URL: getEnvVariable("ETH_RPC_URL"),
     ACCOUNT_METADATA: getEnvVariable("ACCOUNT_METADATA"),
     LIST_REGISTRY: getEnvVariable("LIST_REGISTRY"),
-    ENS_WORKER_URL: getEnvVariable("ENS_WORKER_URL")
+    ENS_WORKER_URL: getEnvVariable("ENS_WORKER_URL"),
+    HEARTBEAT_URL: getEnvVariable("HEARTBEAT_URL"),
 });
 
 function getEnvVariable<T extends keyof EnvironmentVariables>(name: T) {
