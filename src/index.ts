@@ -6,23 +6,6 @@ import { sleep } from "bun";
 
 const bot = new Bot(env.TG_BOT_TOKEN); 
 
-const client = postgres(env.DATABASE_URL, {
-    publications: 'global_publication',
-    types: {
-        bigint: postgres.BigInt
-    }
-})
-
-client.subscribe(
-    'events',
-    async (row, { command, relation }) => {
-        await handleEvent(bot,row)
-    },
-    () => {
-        console.log(`Connected to EFP Global Publication`)
-    }
-)
-
 bot.command("start", async (ctx) => {
     await ctx.reply("Welcome! This bot is ready to send messages.  Please use /sub or /subscribe to start receiving updates. Type /help for more information.");
 });
@@ -85,20 +68,71 @@ bot.catch((err) => {
 
 bot.start();
 
-let heartbeat = 0
-for (;;) {
-    await sleep(1000)
-    console.log(`waiting for events...`)
-    heartbeat++
-    if (heartbeat > 300 && env.HEARTBEAT_URL && env.HEARTBEAT_URL !== 'unset') {
-        // call snitch
-        try {
-            const response = await fetch(`${env.HEARTBEAT_URL}`)
-            const text = await response.text()
-            console.log(`Heartbeat registered`)
-            heartbeat = 0
-        } catch (err) {
-            console.log(`Failed to register heartbeat `)
+export async function main() {
+    const client = postgres(env.DATABASE_URL, {
+        publications: 'global_publication',
+        types: {
+            bigint: postgres.BigInt
+        }
+    })
+
+    try {
+        client.subscribe(
+            'events',
+            async (row, { command, relation }) => {
+                try {
+                    await handleEvent(bot,row)
+                } catch (err) {
+                    console.error('[POSTGRES] Error handling event:', err);
+                }
+            },
+            () => {
+                console.log(`Connected to EFP Global Publication`)
+            },
+            () => {
+                console.error('[POSTGRES] Subscription error occurred.');
+                retryConnection();
+            }
+        );
+    } catch (err) {
+        console.error('[POSTGRES] Initial subscription setup failed:', err);
+        retryConnection();
+    }
+}
+
+let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function retryConnection() {
+    if (retryTimeout) return;
+    retryTimeout = setTimeout(() => {
+        retryTimeout = null;
+        console.log('[POSTGRES] Retrying subscription...');
+        main();
+    }, 5000);
+}
+
+async function startHeartbeat() {
+    const response = await fetch(`${env.HEARTBEAT_URL}`)
+    const text = await response.text()
+    console.log(`Heartbeat registered`)
+    let heartbeat = 0
+    for (;;) {
+        await sleep(1000)
+        console.log(`waiting for events...`)
+        heartbeat++
+        if (heartbeat > 300 && env.HEARTBEAT_URL && env.HEARTBEAT_URL !== 'unset') {
+            // call snitch
+            try {
+                const response = await fetch(`${env.HEARTBEAT_URL}`)
+                const text = await response.text()
+                console.log(`Heartbeat registered`)
+                heartbeat = 0
+            } catch (err) {
+                console.log(`Failed to register heartbeat `)
+            }
         }
     }
 }
+
+main()
+startHeartbeat()
